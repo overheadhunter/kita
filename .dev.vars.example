@@ -1,0 +1,3 @@
+# Copy to .dev.vars for local development. The production value is set with `pnpm wrangler secret put STAFF_TOKEN`.
+# Families are not configured here: staff manage them in the app (local demo families come from `pnpm db:seed`).
+STAFF_TOKEN=staff-dev
