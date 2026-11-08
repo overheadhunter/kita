@@ -2,20 +2,26 @@
 import { computed, ref, watch } from 'vue'
 import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome'
 import { faXmark } from '@fortawesome/free-solid-svg-icons'
-import { click, covers, type DayState, type Days } from '../../shared/plan'
-import { addWeeks, defaultWeek } from '../../shared/week'
-import { ApiError, api } from '../store/api'
+import { click, covers, type DayState, type Days } from '../../shared/anwesenheiten/plan'
+import { api, type Plan } from '../store/api'
 import WeekGrid from './WeekGrid.vue'
-import WeekNav from './WeekNav.vue'
 
-const emit = defineEmits<{ unauthorized: [] }>()
+// the editable week grid of one child; `plan` is null while the week is loading
+const props = defineProps<{ week: string; child: number; plan: Plan | null }>()
 
-// families only need the preselected week and one week either side
-const initialWeek = defaultWeek(new Date())
-const week = ref(initialWeek)
 const states = ref<DayState[]>([])
 const draft = ref(false) // the shown days were copied from the previous week and are not saved yet
-const status = ref<'loading' | 'idle' | 'saving' | 'saved' | 'error'>('loading')
+const status = ref<'idle' | 'saving' | 'saved' | 'error'>('idle')
+
+watch(
+  () => props.plan,
+  (plan) => {
+    states.value = (plan?.days ?? []).map((range) => ({ range, pending: null }))
+    draft.value = plan?.source === 'prefill'
+    status.value = 'idle'
+  },
+  { immediate: true },
+)
 
 const pending = computed(() => states.value.some((s) => s.pending !== null))
 
@@ -28,41 +34,19 @@ const preview = computed(() => {
   return { day: hover.value.day, range: click(state, hover.value.slot).range }
 })
 
-function fail(e: unknown) {
-  if (e instanceof ApiError && e.status === 401) emit('unauthorized')
-  else status.value = 'error'
-}
-
-// a newer load wins over an older one still in flight, e.g. when the user clicks through weeks quickly
-let loadSeq = 0
-async function load() {
-  const seq = ++loadSeq
-  status.value = 'loading'
-  try {
-    const plan = await api.getPlan(week.value)
-    if (seq !== loadSeq) return
-    states.value = plan.days.map((range) => ({ range, pending: null }))
-    draft.value = plan.source === 'prefill'
-    status.value = 'idle'
-  } catch (e) {
-    if (seq === loadSeq) fail(e)
-  }
-}
-watch(week, load, { immediate: true })
-
-// saves run one after another, so the server always ends up with the latest state
+// saves run one after another, so the server always ends up with the latest state; a 401 is handled globally (store/session.ts)
 let queue = Promise.resolve()
 function save() {
-  const target = week.value
+  const target = props.week
   const days: Days = states.value.map((s) => s.range)
   draft.value = false
   status.value = 'saving'
   queue = queue.then(async () => {
     try {
-      await api.putPlan(target, days)
-      if (target === week.value) status.value = 'saved'
-    } catch (e) {
-      fail(e)
+      await api.anwesenheiten.putPlan(target, props.child, days)
+      if (target === props.week) status.value = 'saved'
+    } catch {
+      status.value = 'error'
     }
   })
 }
@@ -92,10 +76,9 @@ function cellClass(day: number, slot: number): string {
 }
 
 const statusText = computed(() => {
+  if (!props.plan) return 'Lade …'
   if (pending.value) return 'Jetzt das Ende wählen …'
   switch (status.value) {
-    case 'loading':
-      return 'Lade …'
     case 'saving':
       return 'Speichere …'
     case 'saved':
@@ -109,9 +92,7 @@ const statusText = computed(() => {
 </script>
 
 <template>
-  <div class="flex flex-col gap-4">
-    <WeekNav v-model="week" :min="addWeeks(initialWeek, -1)" :max="addWeeks(initialWeek, 1)" />
-
+  <div class="flex flex-col gap-3">
     <div
       v-if="draft"
       class="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-dashed border-blue-400 bg-blue-50 px-3 py-2 text-sm dark:border-blue-500 dark:bg-blue-950"
@@ -120,7 +101,7 @@ const statusText = computed(() => {
       <button type="button" class="rounded-md bg-blue-600 px-3 py-1 font-medium text-white hover:bg-blue-700" @click="save">Übernehmen</button>
     </div>
 
-    <WeekGrid :week="week" :class="{ 'pointer-events-none opacity-50': status === 'loading' }" @mouseleave="hover = null">
+    <WeekGrid :week="week" :class="{ 'pointer-events-none opacity-50': !plan }" @mouseleave="hover = null">
       <template #day-action="{ day }">
         <button
           type="button"

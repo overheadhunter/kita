@@ -2,8 +2,8 @@
 import { computed } from 'vue'
 import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome'
 import { faChevronLeft, faChevronRight } from '@fortawesome/free-solid-svg-icons'
-import { addWeeks, mondayOf, today } from '../../shared/week'
-import { relativeWeek, weekLabel } from '../format'
+import { addWeeks, mondayOf, today } from '../../shared/anwesenheiten/week'
+import { relativeWeek, weekLabel } from './format'
 
 // `min` and `max` (Mondays as YYYY-MM-DD) limit navigation; without them the arrows go on indefinitely
 const props = defineProps<{ min?: string; max?: string }>()

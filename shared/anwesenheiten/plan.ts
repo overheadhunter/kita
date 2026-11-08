@@ -72,9 +72,3 @@ export function validateDays(value: unknown): Days | null {
   }
   return days
 }
-
-/** Upper bound for the staff-adjustable total number of families in the kindergarten. */
-export const MAX_TOTAL_FAMILIES = 999
-
-/** Maximum length of a family's display name. */
-export const MAX_FAMILY_NAME_LENGTH = 100

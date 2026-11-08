@@ -3,6 +3,11 @@
   "name": "kita",
   "main": "worker/index.ts",
   "compatibility_date": "2026-11-01",
+  // served only at https://kita.schwanne.de (requires the schwanne.de zone in this Cloudflare account, see EINRICHTUNG.md);
+  // no workers.dev or preview URLs: a second origin would mean a second localStorage and another place exposing the API
+  "routes": [{ "pattern": "kita.schwanne.de", "custom_domain": true }],
+  "workers_dev": false,
+  "preview_urls": false,
   "assets": {
     "not_found_handling": "single-page-application",
     "run_worker_first": ["/api/*"]
@@ -11,8 +16,8 @@
     {
       "binding": "DB",
       "database_name": "kita",
-      // placeholder for local development; replace with the id printed by `wrangler d1 create kita` before the first deployment
-      "database_id": "00000000-0000-0000-0000-000000000000",
+      // placeholder for local development; replace with the id printed by `wrangler d1 create kita` before the first deployment (see EINRICHTUNG.md)
+      "database_id": "8894b5ae-9e1a-44ac-944b-3564e50fa117",
       "migrations_dir": "migrations"
     }
   ],

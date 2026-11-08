@@ -1,20 +1,17 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
-import type { Counts } from '../../shared/heatmap'
-import { MAX_TOTAL_FAMILIES } from '../../shared/plan'
-import { defaultWeek, weekdays } from '../../shared/week'
-import { dayLabel, hourLabel } from '../format'
-import { ApiError, api } from '../store/api'
-import { useTheme } from '../store/theme'
+import type { Counts } from '../../shared/anwesenheiten/heatmap'
+import { defaultWeek, weekdays } from '../../shared/anwesenheiten/week'
+import { dayLabel, hourLabel } from './format'
+import { RouterLink } from 'vue-router'
 import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome'
 import { faUsersGear } from '@fortawesome/free-solid-svg-icons'
-import FamiliesDialog from './FamiliesDialog.vue'
+import { api } from '../store/api'
+import { useTheme } from '../store/theme'
 import WeekGrid from './WeekGrid.vue'
 import WeekNav from './WeekNav.vue'
 
-const emit = defineEmits<{ unauthorized: [] }>()
 const { dark } = useTheme()
-const familiesDialog = ref<InstanceType<typeof FamiliesDialog>>()
 
 const week = ref(defaultWeek(new Date()))
 const counts = ref<Counts | null>(null)
@@ -26,16 +23,15 @@ let loadSeq = 0
 async function load() {
   const seq = ++loadSeq
   try {
-    const heatmap = await api.getHeatmap(week.value)
+    const heatmap = await api.anwesenheiten.getHeatmap(week.value)
     if (seq !== loadSeq) return
     counts.value = heatmap.counts
     families.value = heatmap.families
     totalFamilies.value = heatmap.totalFamilies
     failed.value = false
-  } catch (e) {
-    if (seq !== loadSeq) return
-    if (e instanceof ApiError && e.status === 401) emit('unauthorized')
-    else failed.value = true
+  } catch {
+    // a 401 is handled globally (store/session.ts)
+    if (seq === loadSeq) failed.value = true
   }
 }
 watch(week, load, { immediate: true })
@@ -68,29 +64,8 @@ const legend = computed(() => {
   return Array.from({ length: steps }, (_, i) => Math.max(1, Math.round(((i + 1) / steps) * max.value)))
 })
 
-// share of all families that entered data for this week
+// share of all families (as configured on /verwaltung) that entered data for this week
 const confidence = computed(() => (totalFamilies.value > 0 ? Math.min(1, families.value / totalFamilies.value) : 0))
-
-const totalInput = ref<number | string>('')
-watch(totalFamilies, (total) => (totalInput.value = total))
-const totalStatus = ref<'idle' | 'saving' | 'error'>('idle')
-
-async function saveTotal() {
-  const total = Number(totalInput.value)
-  if (!Number.isInteger(total) || total < 1 || total > MAX_TOTAL_FAMILIES) {
-    totalInput.value = totalFamilies.value
-    return
-  }
-  if (total === totalFamilies.value) return
-  totalStatus.value = 'saving'
-  try {
-    totalFamilies.value = (await api.setTotalFamilies(total)).totalFamilies
-    totalStatus.value = 'idle'
-  } catch (e) {
-    if (e instanceof ApiError && e.status === 401) emit('unauthorized')
-    else totalStatus.value = 'error'
-  }
-}
 </script>
 
 <template>
@@ -104,14 +79,13 @@ async function saveTotal() {
         <span class="font-semibold">Aussagekraft</span>
         <span class="flex items-center gap-2">
           <span class="font-semibold tabular-nums">{{ Math.round(confidence * 100) }} %</span>
-          <button
-            type="button"
+          <RouterLink
+            to="/verwaltung"
             class="rounded-lg p-1.5 text-neutral-600 hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-neutral-800"
             title="Familien verwalten"
-            @click="familiesDialog?.open()"
           >
             <FontAwesomeIcon :icon="faUsersGear" class="size-4" />
-          </button>
+          </RouterLink>
         </span>
       </div>
       <div
@@ -124,22 +98,7 @@ async function saveTotal() {
       >
         <div class="h-full rounded-full bg-blue-600 transition-[width] dark:bg-blue-400" :style="{ width: `${confidence * 100}%` }"></div>
       </div>
-      <label class="flex flex-wrap items-center gap-1 text-neutral-600 dark:text-neutral-300">
-        <span class="tabular-nums">{{ families }} von</span>
-        <input
-          v-model="totalInput"
-          type="number"
-          min="1"
-          :max="MAX_TOTAL_FAMILIES"
-          class="w-16 rounded border border-neutral-300 bg-transparent px-1.5 py-0.5 tabular-nums dark:border-neutral-700"
-          title="Gesamtzahl der Familien in der Kita (gilt für alle Wochen)"
-          @change="saveTotal"
-          @keydown.enter="($event.target as HTMLInputElement).blur()"
-        />
-        <span>Familien haben für diese Woche eingetragen.</span>
-        <span v-if="totalStatus === 'saving'" class="text-neutral-400">Speichere …</span>
-        <span v-else-if="totalStatus === 'error'" class="text-red-600 dark:text-red-400">Speichern fehlgeschlagen</span>
-      </label>
+      <p class="text-neutral-600 tabular-nums dark:text-neutral-300">{{ families }} von {{ totalFamilies }} Familien haben für diese Woche eingetragen.</p>
     </section>
 
     <WeekGrid :week="week" :class="{ 'opacity-50': !counts }">
@@ -156,9 +115,6 @@ async function saveTotal() {
         </div>
       </template>
     </WeekGrid>
-
-    <!-- adding or removing families can change the default total, so reload -->
-    <FamiliesDialog ref="familiesDialog" @changed="load" @unauthorized="emit('unauthorized')" />
 
     <div v-if="legend.length" class="flex items-center justify-center gap-1 text-sm text-neutral-600 dark:text-neutral-300">
       <span>wenige Kinder</span>

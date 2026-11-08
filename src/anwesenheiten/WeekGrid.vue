@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { SLOT_COUNT } from '../../shared/plan'
-import { weekdays } from '../../shared/week'
-import { dayLabel, hourLabel } from '../format'
+import { SLOT_COUNT } from '../../shared/anwesenheiten/plan'
+import { weekdays } from '../../shared/anwesenheiten/week'
+import { dayLabel, hourLabel } from './format'
 
 // layout shared by the parent grid and the heatmap: hours as rows, Monday to Friday as columns; the cells come from the `cell` slot
 const props = defineProps<{ week: string }>()

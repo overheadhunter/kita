@@ -5,5 +5,6 @@ import './style.css'
 // icons are sized explicitly via Tailwind classes, so skip FontAwesome's injected CSS
 faConfig.autoAddCss = false
 import App from './App.vue'
+import { router } from './router'
 
-createApp(App).mount('#app')
+createApp(App).use(router).mount('#app')

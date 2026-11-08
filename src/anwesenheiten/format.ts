@@ -1,32 +1,32 @@
-import { FIRST_HOUR } from '../shared/plan'
-import { addWeeks, isoWeekNumber } from '../shared/week'
+import { FIRST_HOUR } from '../../shared/anwesenheiten/plan'
+import { addWeeks, isoWeekNumber, weekdays } from '../../shared/anwesenheiten/week'
 
-// dates are calendar dates (`YYYY-MM-DD`), parsed as UTC midnight, so format them in UTC as well
+// dates are calendar dates (`YYYY-MM-DD`), parsed as UTC midnight, so format the weekday in UTC as well
 const weekday = new Intl.DateTimeFormat('de-DE', { weekday: 'short', timeZone: 'UTC' })
-const dayMonth = new Intl.DateTimeFormat('de-DE', { day: 'numeric', month: 'numeric', timeZone: 'UTC' })
-const fullDate = new Intl.DateTimeFormat('de-DE', { day: 'numeric', month: 'numeric', year: 'numeric', timeZone: 'UTC' })
 
-function utc(date: string): Date {
-  return new Date(`${date}T00:00:00Z`)
+// always two-digit day and month, e.g. `09.11.`
+function dayMonth(date: string): string {
+  const [, mm, dd] = date.split('-')
+  return `${dd}.${mm}.`
 }
 
 /**
  * Column header for a weekday.
  * @param date the day as `YYYY-MM-DD`
- * @return e.g. `{ weekday: "Mo", date: "9.11." }`
+ * @return e.g. `{ weekday: "Mo", date: "09.11." }`
  */
 export function dayLabel(date: string): { weekday: string; date: string } {
-  return { weekday: weekday.format(utc(date)).replace('.', ''), date: dayMonth.format(utc(date)) }
+  return { weekday: weekday.format(new Date(`${date}T00:00:00Z`)).replace('.', ''), date: dayMonth(date) }
 }
 
 /**
  * Title of a week.
  * @param monday the week's Monday as `YYYY-MM-DD`
- * @return e.g. `KW 46 · 9.11.–13.11.2026`
+ * @return e.g. `KW 46 • 09.11. - 13.11.2026`
  */
 export function weekLabel(monday: string): string {
-  const friday = new Date(utc(monday).getTime() + 4 * 24 * 60 * 60 * 1000)
-  return `KW ${isoWeekNumber(monday)} · ${dayMonth.format(utc(monday))}–${fullDate.format(friday)}`
+  const friday = weekdays(monday)[4]!
+  return `KW ${isoWeekNumber(monday)} • ${dayMonth(monday)} - ${dayMonth(friday)}${friday.slice(0, 4)}`
 }
 
 /**
